@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N-Queens Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f2ee;
+    --surface: #ffffff;
+    --border: #d8d2c8;
+    --text: #1a1814;
+    --text-muted: #7a7367;
+    --accent: #2d5a3d;
+    --accent-light: #e8f0eb;
+    --danger: #8b2e2e;
+    --danger-light: #f5e8e8;
+    --cell-dark: #c8c0b4;
+    --cell-light: #f0ebe4;
+    --highlight: #f7e9a0;
+    --conflict: #f5c5c5;
+  }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  header {
+    max-width: 960px;
+    margin: 0 auto 2.5rem;
+    border-bottom: 2px solid var(--text);
+    padding-bottom: 1.4rem;
+  }
+
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    line-height: 1.1;
+  }
+
+  header h1 em { font-style: italic; color: var(--accent); }
+
+  header p {
+    margin-top: 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.83rem;
+    max-width: 500px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 310px;
+    gap: 1.8rem;
+    align-items: start;
+  }
+
+  @media (max-width: 720px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 2px;
+    padding: 1.4rem;
+  }
+
+  .panel-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 1.1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.9rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.32rem;
+  }
+
+  .field label {
+    font-size: 0.67rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .field input,
+  .field select {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    padding: 0.5rem 0.7rem;
+    border: 1.5px solid var(--border);
+    border-radius: 2px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.14s;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .field input:focus,
+  .field select:focus { border-color: var(--accent); }
+  .field input.error { border-color: var(--danger); background: var(--danger-light); }
+
+  .field-hint { font-size: 0.61rem; color: var(--text-muted); }
+  .field-error { font-size: 0.61rem; color: var(--danger); display: none; }
+  .field-error.visible { display: block; }
+
+  .select-wrap { position: relative; }
+  .select-wrap::after {
+    content: '▾';
+    position: absolute;
+    right: 0.6rem; top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  .btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
+    margin-bottom: 0.9rem;
+  }
+
+  button {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.74rem;
+    padding: 0.58rem 0.8rem;
+    border: 1.5px solid var(--text);
+    background: transparent;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: background 0.13s, color 0.13s;
+    border-radius: 2px;
+  }
+
+  button:hover { background: var(--text); color: var(--surface); }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    grid-column: span 2;
+  }
+
+  button.primary:hover { background: #1e3d29; border-color: #1e3d29; }
+  button:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+  .status-bar {
+    padding: 0.65rem 0.85rem;
+    border-radius: 2px;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    min-height: 50px;
+    transition: all 0.22s;
+  }
+
+  .status-bar.success { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .status-bar.conflict { background: var(--danger-light); border-color: var(--danger); color: var(--danger); }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+
+  .stat {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.75rem;
+  }
+
+  .stat-label {
+    font-size: 0.61rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    color: var(--accent);
+  }
+
+  .legend { display: flex; flex-direction: column; gap: 0.45rem; }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.69rem;
+    color: var(--text-muted);
+  }
+
+  .legend-swatch {
+    width: 15px; height: 15px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .board-wrap { display: flex; flex-direction: column; gap: 1rem; }
+
+  .board-container {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 2px;
+    padding: 1.1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #board {
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 1;
+  }
+
+  .cell {
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .cell.light { background: var(--cell-light); }
+  .cell.dark  { background: var(--cell-dark); }
+  .cell.highlight { background: var(--highlight); }
+  .cell.conflict  { background: var(--conflict); }
+  .cell.placed    { background: var(--accent-light); }
+
+  .cell .q {
+    font-size: min(3.8vw, 1.55rem);
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.17s, transform 0.17s;
+    transform: scale(0.3);
+    user-select: none;
+  }
+
+  .cell.has-queen .q { opacity: 1; transform: scale(1); }
+
+  .log-panel {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 2px;
+    padding: 1rem 1.2rem;
+  }
+
+  .log-title {
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .steps-log {
+    max-height: 175px;
+    overflow-y: auto;
+    font-size: 0.69rem;
+    line-height: 1.95;
+    color: var(--text-muted);
+  }
+
+  .step-entry { border-bottom: 1px dashed var(--border); padding: 0.04rem 0; }
+  .step-entry:last-child { border-bottom: none; }
+  .step-entry.place     { color: var(--accent); }
+  .step-entry.backtrack { color: var(--danger); }
+  .step-entry.found     { color: var(--accent); font-weight: 500; }
+
+  /* ── Solutions panel ───────────────────────────────────────────────────── */
+  #solutionsSection {
+    max-width: 900px;
+    margin: 2.5rem auto 2rem;
+    display: none;
+  }
+  #solutionsSection.visible { display: block; }
+
+  .solutions-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    border-bottom: 2px solid var(--text);
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.5rem;
+  }
+  .solutions-header h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem;
+    letter-spacing: -0.01em;
+  }
+  .solutions-header .sol-badge {
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.65rem;
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 2px;
+  }
+
+  .solutions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+
+  .sol-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 2px;
+    padding: 0.85rem 0.9rem;
+    animation: fadeUp 0.35s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .sol-card-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.55rem;
+  }
+
+  .sol-mini-board {
+    display: grid;
+    gap: 1.5px;
+    margin-bottom: 0.65rem;
+  }
+  .sol-mini-cell {
+    border-radius: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    line-height: 1;
+    aspect-ratio: 1;
+  }
+  .sol-mini-cell.light { background: var(--cell-light); }
+  .sol-mini-cell.dark  { background: var(--cell-dark); }
+  .sol-mini-cell.queen { background: var(--accent-light); }
+
+  .sol-col-table {
+    border-top: 1px dashed var(--border);
+    padding-top: 0.55rem;
+    font-size: 0.67rem;
+    color: var(--text-muted);
+  }
+  .sol-col-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.05rem 0;
+  }
+  .sol-col-row .col-val { color: var(--accent); font-weight: 500; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>N&#8209;Queens <em>Visualizer</em></h1>
+  <p>Configure the board below, then watch the backtracking algorithm place queens — step by step — until no two queens threaten each other.</p>
+</header>
+
+<div class="layout">
+
+  <!-- Left: board + log -->
+  <div class="board-wrap">
+    <div class="board-container">
+      <div id="board"></div>
+    </div>
+    <div class="log-panel">
+      <div class="log-title">Algorithm Log</div>
+      <div class="steps-log" id="log">
+        <div class="step-entry">Configure inputs on the right and press <strong>Solve</strong>.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: controls -->
+  <div style="display:flex;flex-direction:column;gap:1.2rem;">
+
+    <div class="panel">
+      <div class="panel-title">Configuration</div>
+
+      <div class="config-grid">
+
+        <div class="field">
+          <label for="inputN">Board Size (N)</label>
+          <input type="number" id="inputN" value="6" min="4" max="12" placeholder="4 – 12">
+          <span class="field-hint">Enter a number 4–12</span>
+          <span class="field-error" id="errN">Must be between 4 and 12</span>
+        </div>
+
+        <div class="field">
+          <label for="inputSpeed">Animation Speed</label>
+          <div class="select-wrap">
+            <select id="inputSpeed">
+              <option value="700">Slow</option>
+              <option value="300" selected>Medium</option>
+              <option value="90">Fast</option>
+              <option value="18">Very Fast</option>
+            </select>
+          </div>
+          <span class="field-hint">Delay between each step</span>
+        </div>
+
+        <div class="field">
+          <label for="inputStartRow">Start from Row</label>
+          <input type="number" id="inputStartRow" value="1" min="1" placeholder="1">
+          <span class="field-hint">Row the solver begins at</span>
+          <span class="field-error" id="errRow">Must be 1 to N</span>
+        </div>
+
+        <div class="field">
+          <label for="inputFirstCol">Pin Col in Row 1</label>
+          <input type="number" id="inputFirstCol" value="" min="1" placeholder="Optional">
+          <span class="field-hint">Pre-place queen in row 1</span>
+          <span class="field-error" id="errCol">Must be 1 to N</span>
+        </div>
+
+      </div>
+
+      <div class="btn-group">
+        <button class="primary" id="btnSolve">▶ Solve</button>
+        <button id="btnPause" disabled>⏸ Pause</button>
+        <button id="btnStep" disabled>Step →</button>
+        <button id="btnReset">↺ Reset</button>
+      </div>
+
+      <div class="status-bar" id="statusBar">Fill in the configuration above and press Solve.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Statistics</div>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-label">Queens</div>
+          <div class="stat-value" id="statQueens">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Steps</div>
+          <div class="stat-value" id="statSteps">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Backtracks</div>
+          <div class="stat-value" id="statBack">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Solutions</div>
+          <div class="stat-value" id="statSols">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Legend</div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:var(--accent-light);border-color:var(--accent);"></div>
+          Queen placed safely
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:var(--highlight);"></div>
+          Currently testing position
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:var(--conflict);border-color:#d8aaaa;"></div>
+          Conflict — backtrack triggered
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:var(--cell-light);"></div>
+          Empty cell
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- Solutions section (shown after algorithm completes) -->
+<div id="solutionsSection">
+  <div class="solutions-header">
+    <h2>All Solutions</h2>
+    <span class="sol-badge" id="solBadge">0 solutions</span>
+  </div>
+  <div class="solutions-grid" id="solutionsGrid"></div>
+</div>
+
+<script>
+  // DOM
+  const boardEl       = document.getElementById('board');
+  const inputN        = document.getElementById('inputN');
+  const inputSpeed    = document.getElementById('inputSpeed');
+  const inputStartRow = document.getElementById('inputStartRow');
+  const inputFirstCol = document.getElementById('inputFirstCol');
+  const errN          = document.getElementById('errN');
+  const errRow        = document.getElementById('errRow');
+  const errCol        = document.getElementById('errCol');
+  const btnSolve      = document.getElementById('btnSolve');
+  const btnStep       = document.getElementById('btnStep');
+  const btnPause      = document.getElementById('btnPause');
+  const btnReset      = document.getElementById('btnReset');
+  const statusBar     = document.getElementById('statusBar');
+  const logEl         = document.getElementById('log');
+  const statQueens    = document.getElementById('statQueens');
+  const statSteps     = document.getElementById('statSteps');
+  const statBack      = document.getElementById('statBack');
+  const statSols      = document.getElementById('statSols');
+  const solutionsSection = document.getElementById('solutionsSection');
+  const solutionsGrid    = document.getElementById('solutionsGrid');
+  const solBadge         = document.getElementById('solBadge');
+  let allSolutions = [];
+
+  // State
+  let N = 6, startRow = 1, fixedCol = null;
+  let cells = [];
+  let steps = [], stepIdx = 0;
+  let running = false, paused = false;
+  let animTimer = null;
+  let stepCount = 0, backCount = 0, solCount = 0;
+
+  function getDelay() { return parseInt(inputSpeed.value); }
+
+  // ── Validation ────────────────────────────────────────────────────────────
+  function validate() {
+    let ok = true;
+
+    const nv = parseInt(inputN.value);
+    if (!inputN.value || isNaN(nv) || nv < 4 || nv > 12) {
+      inputN.classList.add('error'); errN.classList.add('visible'); ok = false;
+    } else {
+      inputN.classList.remove('error'); errN.classList.remove('visible'); N = nv;
+    }
+    if (!ok) return false;
+
+    const rv = parseInt(inputStartRow.value);
+    if (!inputStartRow.value || isNaN(rv) || rv < 1 || rv > N) {
+      inputStartRow.classList.add('error');
+      errRow.textContent = `Must be between 1 and ${N}`;
+      errRow.classList.add('visible'); ok = false;
+    } else {
+      inputStartRow.classList.remove('error'); errRow.classList.remove('visible'); startRow = rv;
+    }
+
+    const fcv = inputFirstCol.value.trim();
+    if (fcv === '') {
+      fixedCol = null;
+      inputFirstCol.classList.remove('error'); errCol.classList.remove('visible');
+    } else {
+      const fv = parseInt(fcv);
+      if (isNaN(fv) || fv < 1 || fv > N) {
+        inputFirstCol.classList.add('error');
+        errCol.textContent = `Must be between 1 and ${N}`;
+        errCol.classList.add('visible'); ok = false;
+      } else {
+        fixedCol = fv;
+        inputFirstCol.classList.remove('error'); errCol.classList.remove('visible');
+      }
+    }
+
+    return ok;
+  }
+
+  // ── Board ─────────────────────────────────────────────────────────────────
+  function buildBoard() {
+    boardEl.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+    boardEl.innerHTML = '';
+    cells = [];
+    for (let r = 0; r < N; r++) {
+      cells[r] = [];
+      for (let c = 0; c < N; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        const q = document.createElement('span');
+        q.className = 'q'; q.textContent = '♛';
+        cell.appendChild(q);
+        boardEl.appendChild(cell);
+        cells[r][c] = cell;
+      }
+    }
+  }
+
+  function setCell(r, c, state) {
+    if (!cells[r] || !cells[r][c]) return;
+    const base = (r + c) % 2 === 0 ? 'light' : 'dark';
+    cells[r][c].className = 'cell ' + (state === 'normal' ? base : state);
+    if (state === 'placed') cells[r][c].classList.add('has-queen');
+    else cells[r][c].classList.remove('has-queen');
+  }
+
+  function clearBoard() {
+    for (let r = 0; r < N; r++)
+      for (let c = 0; c < N; c++)
+        setCell(r, c, 'normal');
+  }
+
+  // ── Step computation ──────────────────────────────────────────────────────
+  function computeSteps() {
+    steps = [];
+    const x = new Array(N + 1).fill(0);
+
+    if (fixedCol !== null && startRow === 1) {
+      x[1] = fixedCol;
+      steps.push({ type: 'place', row: 0, col: fixedCol - 1, board: [...x.slice(1)] });
+    }
+
+    function isSafe(k, i) {
+      for (let j = 1; j < k; j++) {
+        if (x[j] === 0) continue;
+        if (x[j] === i || Math.abs(x[j] - i) === Math.abs(j - k)) return false;
+      }
+      return true;
+    }
+
+    function solve(k) {
+      if (k > N) {
+        steps.push({ type: 'solution', board: x.slice(1).map(v => v || '–') });
+        return;
+      }
+      if (k === 1 && fixedCol !== null) { solve(2); return; }
+      for (let i = 1; i <= N; i++) {
+        steps.push({ type: 'try', row: k - 1, col: i - 1 });
+        if (isSafe(k, i)) {
+          x[k] = i;
+          steps.push({ type: 'place', row: k - 1, col: i - 1, board: [...x.slice(1)] });
+          solve(k + 1);
+          x[k] = 0;
+          steps.push({ type: 'remove', row: k - 1, col: i - 1, board: [...x.slice(1)] });
+        } else {
+          steps.push({ type: 'conflict', row: k - 1, col: i - 1 });
+        }
+      }
+    }
+
+    solve(startRow);
+    steps.push({ type: 'done' });
+  }
+
+  // ── Apply step ────────────────────────────────────────────────────────────
+  function applyStep(s) {
+    switch (s.type) {
+      case 'try':
+        setCell(s.row, s.col, 'highlight');
+        break;
+      case 'place':
+        setCell(s.row, s.col, 'placed');
+        for (let c = 0; c < N; c++) if (c !== s.col) setCell(s.row, c, 'normal');
+        statQueens.textContent = s.board.filter(v => v > 0).length;
+        stepCount++; statSteps.textContent = stepCount;
+        addLog(`✓ Queen → row ${s.row + 1}, col ${s.col + 1}`, 'place');
+        setStatus(`Queen placed at row ${s.row + 1}, column ${s.col + 1}. No conflicts.`, '');
+        break;
+      case 'conflict':
+        setCell(s.row, s.col, 'conflict');
+        setTimeout(() => setCell(s.row, s.col, 'normal'), getDelay() * 0.7);
+        stepCount++; statSteps.textContent = stepCount;
+        addLog(`✗ Conflict (${s.row + 1}, ${s.col + 1})`, 'backtrack');
+        setStatus(`Conflict at row ${s.row + 1}, col ${s.col + 1} — same column or diagonal attacked.`, 'conflict');
+        break;
+      case 'remove':
+        setCell(s.row, s.col, 'normal');
+        statQueens.textContent = s.board.filter(v => v > 0).length;
+        backCount++; statBack.textContent = backCount;
+        addLog(`↩ Backtrack from row ${s.row + 1}`, 'backtrack');
+        setStatus(`All columns in row ${s.row + 1} exhausted — backtracking to row ${s.row}.`, 'conflict');
+        break;
+      case 'solution':
+        solCount++; statSols.textContent = solCount;
+        allSolutions.push([...s.board]);
+        addLog(`★ Solution #${solCount}: [${s.board.join(', ')}]`, 'found');
+        setStatus(`Solution #${solCount} found! Columns: [${s.board.join(', ')}]`, 'success');
+        break;
+      case 'done':
+        setStatus(`Done — ${solCount} solution${solCount !== 1 ? 's' : ''} found for ${N}×${N}.`, 'success');
+        addLog(`─── Finished: ${solCount} solution(s) ───`, 'found');
+        stopAll();
+        btnSolve.disabled = false;
+        btnStep.disabled = true;
+        btnPause.disabled = true;
+        showSolutions();
+        break;
+    }
+  }
+
+  function addLog(text, cls) {
+    const d = document.createElement('div');
+    d.className = 'step-entry ' + (cls || '');
+    d.textContent = text;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+    while (logEl.children.length > 120) logEl.removeChild(logEl.firstChild);
+  }
+
+  function setStatus(msg, cls) {
+    statusBar.textContent = msg;
+    statusBar.className = 'status-bar ' + (cls || '');
+  }
+
+
+  // ── Render Solutions ──────────────────────────────────────────────────────
+  function renderSolutionCard(board, index) {
+    const n = board.length;
+    const card = document.createElement('div');
+    card.className = 'sol-card';
+    card.style.animationDelay = (index * 40) + 'ms';
+
+    const title = document.createElement('div');
+    title.className = 'sol-card-title';
+    title.textContent = 'Solution ' + (index + 1);
+    card.appendChild(title);
+
+    // Mini board
+    const mini = document.createElement('div');
+    mini.className = 'sol-mini-board';
+    mini.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const cell = document.createElement('div');
+        const isQueen = (board[r] - 1 === c); // board is 1-indexed cols
+        cell.className = 'sol-mini-cell ' + (isQueen ? 'queen' : ((r + c) % 2 === 0 ? 'light' : 'dark'));
+        cell.textContent = isQueen ? '♛' : '';
+        mini.appendChild(cell);
+      }
+    }
+    card.appendChild(mini);
+
+    // Column table
+    const table = document.createElement('div');
+    table.className = 'sol-col-table';
+    for (let r = 0; r < n; r++) {
+      const row = document.createElement('div');
+      row.className = 'sol-col-row';
+      row.innerHTML = '<span>Row ' + (r + 1) + '</span><span class="col-val">Col ' + board[r] + '</span>';
+      table.appendChild(row);
+    }
+    card.appendChild(table);
+
+    return card;
+  }
+
+  function showSolutions() {
+    solutionsGrid.innerHTML = '';
+    allSolutions.forEach((sol, i) => {
+      solutionsGrid.appendChild(renderSolutionCard(sol, i));
+    });
+    solBadge.textContent = allSolutions.length + ' solution' + (allSolutions.length !== 1 ? 's' : '');
+    solutionsSection.classList.add('visible');
+    setTimeout(() => solutionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  }
+
+  // ── Animation ─────────────────────────────────────────────────────────────
+  function tick() {
+    if (paused || stepIdx >= steps.length) return;
+    applyStep(steps[stepIdx++]);
+    if (steps[stepIdx - 1]?.type !== 'done')
+      animTimer = setTimeout(tick, getDelay());
+  }
+
+  function startAnim() {
+    running = true; paused = false;
+    btnSolve.disabled = true;
+    btnPause.disabled = false;
+    btnPause.textContent = '⏸ Pause';
+    btnStep.disabled = true;
+    tick();
+  }
+
+  function stopAll() {
+    running = false; paused = false;
+    if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+  function resetAll() {
+    stopAll();
+    const nv = parseInt(inputN.value);
+    if (nv >= 4 && nv <= 12) N = nv;
+    buildBoard();
+    steps = []; stepIdx = 0;
+    stepCount = backCount = solCount = 0;
+    allSolutions = [];
+    solutionsSection.classList.remove('visible');
+    solutionsGrid.innerHTML = '';
+    statQueens.textContent = statSteps.textContent = statBack.textContent = statSols.textContent = '0';
+    logEl.innerHTML = '<div class="step-entry">Configure inputs on the right and press <strong>Solve</strong>.</div>';
+    setStatus('Fill in the configuration above and press Solve.', '');
+    btnSolve.disabled = false;
+    btnStep.disabled = true;
+    btnPause.disabled = true;
+    btnPause.textContent = '⏸ Pause';
+  }
+
+  // ── Button events ─────────────────────────────────────────────────────────
+  btnSolve.addEventListener('click', () => {
+    if (!validate()) return;
+    stopAll();
+    buildBoard(); clearBoard();
+    computeSteps();
+    stepIdx = stepCount = backCount = solCount = 0;
+    statQueens.textContent = statSteps.textContent = statBack.textContent = statSols.textContent = '0';
+    logEl.innerHTML = '';
+    const pin = fixedCol ? `, queen pinned to col ${fixedCol}` : '';
+    addLog(`${N}×${N} board, start row ${startRow}${pin}`, '');
+    setStatus(`Solving ${N}×${N} board from row ${startRow}…`, '');
+    startAnim();
+  });
+
+  btnPause.addEventListener('click', () => {
+    if (!running) return;
+    if (!paused) {
+      paused = true;
+      if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+      btnPause.textContent = '▶ Resume';
+      btnStep.disabled = false;
+      setStatus('Paused — press Resume to continue, or Step to advance one move.', '');
+    } else {
+      paused = false;
+      btnPause.textContent = '⏸ Pause';
+      btnStep.disabled = true;
+      tick();
+    }
+  });
+
+  btnStep.addEventListener('click', () => {
+    if (!steps.length) {
+      if (!validate()) return;
+      buildBoard(); clearBoard();
+      computeSteps();
+      stepIdx = stepCount = backCount = solCount = 0;
+      logEl.innerHTML = '';
+    }
+    if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+    paused = true;
+    if (stepIdx < steps.length) applyStep(steps[stepIdx++]);
+    if (stepIdx >= steps.length) btnStep.disabled = true;
+  });
+
+  btnReset.addEventListener('click', resetAll);
+
+  // Live board preview when N changes
+  inputN.addEventListener('change', () => {
+    const v = parseInt(inputN.value);
+    if (!isNaN(v) && v >= 4 && v <= 12) { N = v; resetAll(); }
+  });
+
+  // Init
+  buildBoard();
+</script>
+</body>
+</html>
